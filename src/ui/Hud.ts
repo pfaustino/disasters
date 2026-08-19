@@ -11,6 +11,7 @@ export type HudHandlers = {
   onResetView: () => void
   onMute: (muted: boolean) => void
   onVolume: (volume: number) => void
+  onShowMagLabels: (show: boolean) => void
 }
 
 function formatMag(event: QuakeEvent): string {
@@ -82,6 +83,10 @@ export class Hud {
                 <input id="volume" type="range" min="0" max="100" value="80" />
               </label>
             </div>
+            <label class="check">
+              <input id="show-mag-labels" type="checkbox" />
+              Show magnitude on globe
+            </label>
             <p class="note">Magnitude uses the reported scale (Mw, ML, mb, …). ML is the original Richter scale; large events are usually Mw.</p>
           </div>
         </section>
@@ -159,6 +164,10 @@ export class Hud {
     root.querySelector<HTMLInputElement>('#volume')?.addEventListener('input', (event) => {
       const target = event.target as HTMLInputElement
       handlers.onVolume(Number(target.value) / 100)
+    })
+    root.querySelector<HTMLInputElement>('#show-mag-labels')?.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement
+      handlers.onShowMagLabels(target.checked)
     })
 
     this.scrubber.addEventListener('pointerdown', () => {

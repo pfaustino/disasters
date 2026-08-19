@@ -8,6 +8,7 @@ import {
   PACIFIC_LON,
   latLonToVector3,
 } from './geo.ts'
+import { MagLabelPool } from './MagLabels.ts'
 import { RipplePool } from './RipplePool.ts'
 
 export class Globe {
@@ -15,6 +16,7 @@ export class Globe {
   readonly camera: THREE.PerspectiveCamera
   readonly controls: OrbitControls
   readonly ripples: RipplePool
+  readonly labels: MagLabelPool
   private readonly scene = new THREE.Scene()
   private readonly pacificPos = new THREE.Vector3()
   private readonly container: HTMLElement
@@ -61,6 +63,8 @@ export class Globe {
 
     this.ripples = new RipplePool()
     this.scene.add(this.ripples.group)
+    this.labels = new MagLabelPool()
+    this.scene.add(this.labels.group)
 
     this.bindPinchZoom()
     window.addEventListener('resize', this.onResize)
@@ -68,6 +72,17 @@ export class Globe {
 
   spawn(event: QuakeEvent): void {
     this.ripples.spawn(event)
+    this.labels.spawn(event)
+  }
+
+  setShowMagLabels(show: boolean): void {
+    this.labels.enabled = show
+    if (!show) this.labels.clear()
+  }
+
+  clearMarks(): void {
+    this.ripples.clear()
+    this.labels.clear()
   }
 
   resetToPacific(): void {
@@ -78,6 +93,7 @@ export class Globe {
 
   update(dtSec: number): void {
     this.ripples.update(dtSec)
+    this.labels.update(dtSec)
     this.controls.update()
   }
 

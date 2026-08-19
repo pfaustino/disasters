@@ -46,7 +46,7 @@ const hud = new Hud(hudRoot, {
   },
   onSeek: (fraction) => {
     playback.seekFraction(fraction)
-    globe.ripples.clear()
+    globe.clearMarks()
     hud.setClock(playback.playhead)
   },
   onResetView: () => globe.resetToPacific(),
@@ -56,6 +56,7 @@ const hud = new Hud(hudRoot, {
   onVolume: (volume) => {
     void sounds.setVolume(volume).then(() => hud.setMuted(sounds.isMuted()))
   },
+  onShowMagLabels: (show) => globe.setShowMagLabels(show),
 })
 
 hud.setShowDeaths(false)
@@ -75,7 +76,7 @@ function applyCatalog(): void {
     mode === 'live' ? LIVE_DURATION_MS : HISTORY_DURATION_MS,
     mode === 'history',
   )
-  globe.ripples.clear()
+  globe.clearMarks()
   resetStats()
   hud.setShowDeaths(mode === 'history')
   hud.setClock(playback.events.length > 0 ? playback.playhead : Number.NaN)

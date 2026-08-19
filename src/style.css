@@ -131,6 +131,22 @@ body {
   margin: 10px 0 0;
 }
 
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 8px;
+  color: #e8eef4;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 14px;
+  height: 14px;
+  accent-color: #e8a87c;
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
