@@ -111,6 +111,27 @@ function headerIndex(header: string[], name: string): number {
 }
 
 const CST_OFFSET_MS = 6 * 60 * 60 * 1000
+// SPC uses elat/elon 0,0 when the end point is unknown (Gulf of Guinea, not a real track).
+const SPC_MISSING_DEG = 0.05
+// Longest documented tornado path is ~352 km (Tri-State, 1925); anything far beyond that is bad data.
+const MAX_TORNADO_PATH_KM = 500
+
+function isSpcMissingLatLon(lat: number, lon: number): boolean {
+  return Math.abs(lat) < SPC_MISSING_DEG && Math.abs(lon) < SPC_MISSING_DEG
+}
+
+function tornadoPathKm(lat: number, lon: number, endLat: number, endLon: number): number {
+  const dlat = endLat - lat
+  const dlon = endLon - lon
+  return Math.hypot(dlat * 111, dlon * 111 * Math.cos((lat * Math.PI) / 180))
+}
+
+function hasTornadoPath(lat: number, lon: number, endLat: number, endLon: number): boolean {
+  if (!Number.isFinite(endLat) || !Number.isFinite(endLon)) return false
+  if (isSpcMissingLatLon(endLat, endLon)) return false
+  if (Math.abs(endLat - lat) <= 0.01 && Math.abs(endLon - lon) <= 0.01) return false
+  return tornadoPathKm(lat, lon, endLat, endLon) <= MAX_TORNADO_PATH_KM
+}
 
 export function spcCsvToTornadoes(csv: string): WeatherEvent[] {
   const lines = csv.split(/\r?\n/)
@@ -163,10 +184,7 @@ export function spcCsvToTornadoes(csv: string): WeatherEvent[] {
 
     const endLat = elatIdx >= 0 ? Number(cols[elatIdx]) : Number.NaN
     const endLon = elonIdx >= 0 ? Number(cols[elonIdx]) : Number.NaN
-    const hasPath =
-      Number.isFinite(endLat) &&
-      Number.isFinite(endLon) &&
-      (Math.abs(endLat - lat) > 0.01 || Math.abs(endLon - lon) > 0.01)
+    const hasPath = hasTornadoPath(lat, lon, endLat, endLon)
     const om = omIdx >= 0 ? cols[omIdx].trim() : String(i)
     const state = stIdx >= 0 ? cols[stIdx].trim() : ''
     const deaths = fatIdx >= 0 ? Number(cols[fatIdx]) : Number.NaN

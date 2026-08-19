@@ -195,14 +195,24 @@ async function fetchFireSnapshot(root: string): Promise<void> {
   writeJson(root, 'fires-significant.json', fires)
 }
 
+async function fetchTornadoSnapshot(root: string): Promise<void> {
+  const tornadoCsv = await fetchFirstOk(SPC_URLS)
+  const tornadoes = spcCsvToTornadoes(tornadoCsv)
+  writeJson(root, 'tornadoes-significant.json', tornadoes)
+}
+
 async function main(): Promise<void> {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..')
   const firesOnly = process.argv.includes('--fires')
+  const tornadoesOnly = process.argv.includes('--tornadoes')
+
+  if (tornadoesOnly) {
+    await fetchTornadoSnapshot(root)
+    return
+  }
 
   if (!firesOnly) {
-    const tornadoCsv = await fetchFirstOk(SPC_URLS)
-    const tornadoes = spcCsvToTornadoes(tornadoCsv)
-    writeJson(root, 'tornadoes-significant.json', tornadoes)
+    await fetchTornadoSnapshot(root)
 
     console.log(`Fetching ${HURDAT_ATLANTIC}`)
     const atlantic = hurdat2ToHurricanes(await fetchText(HURDAT_ATLANTIC, 120000))
