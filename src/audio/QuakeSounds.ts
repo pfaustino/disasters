@@ -9,7 +9,7 @@ export class QuakeSounds {
   private noise: AudioBuffer | null = null
   private voices = 0
   private muted = true
-  private volume = 0.5
+  private volume = 0.8
 
   isMuted(): boolean {
     return this.muted
@@ -37,9 +37,9 @@ export class QuakeSounds {
     if (this.voices >= MAX_VOICES) return
 
     const now = this.ctx.currentTime
-    const duration = 0.16 + mag * 0.1
-    const amp = Math.min(0.5, 0.028 * 10 ** (mag / 12))
-    const cutoff = Math.max(55, 400 - mag * 32)
+    const duration = 0.18 + mag * 0.12
+    const amp = Math.min(1.6, 0.16 * 10 ** (mag / 10))
+    const cutoff = Math.max(90, 620 - mag * 36)
 
     const source = this.ctx.createBufferSource()
     source.buffer = this.noise
@@ -73,7 +73,7 @@ export class QuakeSounds {
     osc.type = 'sine'
     osc.frequency.setValueAtTime(Math.max(28, 72 - mag * 4), now)
     osc.frequency.exponentialRampToValueAtTime(22, now + duration * 0.8)
-    const amp = Math.min(0.22, 0.02 * (mag - 4))
+    const amp = Math.min(0.7, 0.09 * Math.max(0.5, mag - 3))
     gain.gain.setValueAtTime(0.0001, now)
     gain.gain.exponentialRampToValueAtTime(amp, now + 0.01)
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration)

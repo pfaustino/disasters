@@ -3,7 +3,7 @@ import * as THREE from 'three'
 export const GLOBE_RADIUS = 1
 export const PACIFIC_LAT = 0
 export const PACIFIC_LON = -160
-export const CAMERA_DISTANCE = 2.45
+export const CAMERA_DISTANCE = 4.6
 
 const DEG = Math.PI / 180
 

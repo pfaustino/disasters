@@ -17,11 +17,13 @@ body {
   height: 100%;
   overflow: hidden;
   background: #05070a;
+  touch-action: none;
 }
 
 #globe {
   position: fixed;
   inset: 0;
+  touch-action: none;
 }
 
 #globe canvas {
@@ -39,6 +41,7 @@ body {
   justify-content: space-between;
   padding: 16px;
   gap: 12px;
+  touch-action: none;
 }
 
 .hud-top,
@@ -62,6 +65,47 @@ body {
   max-width: 360px;
 }
 
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-head h1,
+.panel-head h2,
+.panel-head #clock {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-toggle {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.panel-body {
+  margin-top: 10px;
+}
+
+.panel.collapsed {
+  padding: 8px 12px;
+  min-width: 0;
+}
+
+.panel.collapsed .panel-body {
+  display: none;
+}
+
+.timeline.collapsed {
+  width: auto;
+  align-self: flex-start;
+}
+
 .timeline {
   max-width: none;
   width: 100%;
@@ -69,7 +113,6 @@ body {
 
 .controls h1,
 .card h2 {
-  margin: 0 0 8px;
   font-size: 18px;
   font-weight: 650;
 }
@@ -104,6 +147,7 @@ button {
   font: inherit;
   font-size: 13px;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 button.active,
@@ -151,7 +195,7 @@ dd {
 
 .clock-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: baseline;
   gap: 12px;
   margin-bottom: 8px;
@@ -174,11 +218,6 @@ dd {
   font-weight: 650;
 }
 
-#scrubber {
-  width: 100%;
-  margin: 0;
-}
-
 .sound-row {
   align-items: center;
 }
@@ -196,6 +235,13 @@ dd {
 .volume input {
   flex: 1;
   margin: 0;
+  touch-action: pan-x;
+}
+
+#scrubber {
+  width: 100%;
+  margin: 0;
+  touch-action: pan-x;
 }
 
 .pager.green { color: #7dce8a; }
@@ -205,6 +251,7 @@ dd {
 
 .attr {
   margin: 8px 0 0;
+  pointer-events: auto;
 }
 
 @media (max-width: 720px) {

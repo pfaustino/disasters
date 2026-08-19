@@ -41,6 +41,7 @@ export class Hud {
   private readonly scrubber: HTMLInputElement
   private readonly playBtn: HTMLButtonElement
   private readonly muteBtn: HTMLButtonElement
+  private readonly cardTitleEl: HTMLElement
   private seeking = false
   private muted = true
 
@@ -48,55 +49,71 @@ export class Hud {
     root.innerHTML = `
       <div class="hud-top">
         <section class="panel controls">
-          <h1>Pacific Earthquake Globe</h1>
-          <p class="lede">Ring of Fire view. Expanding blips scale with magnitude. Deaths appear only when a catalog recorded them.</p>
-          <div class="row" role="group" aria-label="Catalog">
-            <button type="button" data-mode="live" class="active">Live week</button>
-            <button type="button" data-mode="history">History 1900+</button>
+          <header class="panel-head">
+            <h1>Pacific Earthquake Globe</h1>
+            <button type="button" class="panel-toggle" aria-expanded="true">Collapse</button>
+          </header>
+          <div class="panel-body">
+            <p class="lede">Ring of Fire view. Expanding blips scale with magnitude. Deaths appear only when a catalog recorded them.</p>
+            <div class="row" role="group" aria-label="Catalog">
+              <button type="button" data-mode="live" class="active">Live week</button>
+              <button type="button" data-mode="history">History 1900+</button>
+            </div>
+            <div class="row" role="group" aria-label="Minimum magnitude">
+              <button type="button" data-mag="2.5" class="active">M ≥ 2.5</button>
+              <button type="button" data-mag="4">M ≥ 4</button>
+              <button type="button" data-mag="6">M ≥ 6</button>
+            </div>
+            <div class="row" role="group" aria-label="Playback speed">
+              <button type="button" data-speed="0.25">0.25×</button>
+              <button type="button" data-speed="0.5">0.5×</button>
+              <button type="button" data-speed="1" class="active">1×</button>
+              <button type="button" data-speed="10">10×</button>
+              <button type="button" data-speed="60">60×</button>
+            </div>
+            <div class="row">
+              <button type="button" id="play-toggle">Pause</button>
+              <button type="button" id="reset-view">Pacific view</button>
+            </div>
+            <div class="row sound-row">
+              <button type="button" id="mute-toggle" aria-pressed="true">Sound off</button>
+              <label class="volume">
+                Volume
+                <input id="volume" type="range" min="0" max="100" value="80" />
+              </label>
+            </div>
+            <p class="note">Magnitude uses the reported scale (Mw, ML, mb, …). ML is the original Richter scale; large events are usually Mw.</p>
           </div>
-          <div class="row" role="group" aria-label="Minimum magnitude">
-            <button type="button" data-mag="2.5" class="active">M ≥ 2.5</button>
-            <button type="button" data-mag="4">M ≥ 4</button>
-            <button type="button" data-mag="6">M ≥ 6</button>
-          </div>
-          <div class="row" role="group" aria-label="Playback speed">
-            <button type="button" data-speed="0.25">0.25×</button>
-            <button type="button" data-speed="0.5">0.5×</button>
-            <button type="button" data-speed="1" class="active">1×</button>
-            <button type="button" data-speed="10">10×</button>
-            <button type="button" data-speed="60">60×</button>
-          </div>
-          <div class="row">
-            <button type="button" id="play-toggle">Pause</button>
-            <button type="button" id="reset-view">Pacific view</button>
-          </div>
-          <div class="row sound-row">
-            <button type="button" id="mute-toggle" aria-pressed="true">Sound off</button>
-            <label class="volume">
-              Volume
-              <input id="volume" type="range" min="0" max="100" value="50" />
-            </label>
-          </div>
-          <p class="note">Magnitude uses the reported scale (Mw, ML, mb, …). ML is the original Richter scale; large events are usually Mw.</p>
         </section>
-        <section class="panel card" id="event-card">
-          <p class="muted">Waiting for an event</p>
+        <section class="panel card">
+          <header class="panel-head">
+            <h2 id="card-title">Event</h2>
+            <button type="button" class="panel-toggle" aria-expanded="true">Collapse</button>
+          </header>
+          <div class="panel-body" id="event-card">
+            <p class="muted">Waiting for an event</p>
+          </div>
         </section>
       </div>
       <div class="hud-bottom">
         <div class="panel timeline">
-          <div class="clock-row">
+          <header class="panel-head">
             <div id="clock">—</div>
-            <div class="stats">
-              <span>Events <strong id="stat-events">0</strong></span>
-              <span>Max mag <strong id="stat-maxmag">—</strong></span>
-              <span id="deaths-stat">Deaths <strong id="stat-deaths">0</strong></span>
+            <button type="button" class="panel-toggle" aria-expanded="true">Collapse</button>
+          </header>
+          <div class="panel-body">
+            <div class="clock-row">
+              <div class="stats">
+                <span>Events <strong id="stat-events">0</strong></span>
+                <span>Max mag <strong id="stat-maxmag">—</strong></span>
+                <span id="deaths-stat">Deaths <strong id="stat-deaths">0</strong></span>
+              </div>
             </div>
+            <input id="scrubber" type="range" min="0" max="1000" value="0" />
+            <p class="status" id="status">Loading catalogs…</p>
+            <p class="attr">Live: USGS earthquake feed. History: NOAA NCEI Significant Earthquake Database. Globe: NASA Blue Marble.</p>
           </div>
-          <input id="scrubber" type="range" min="0" max="1000" value="0" />
-          <p class="status" id="status">Loading catalogs…</p>
         </div>
-        <p class="attr">Live: USGS earthquake feed. History: NOAA NCEI Significant Earthquake Database. Globe: NASA Blue Marble.</p>
       </div>
     `
 
@@ -110,6 +127,11 @@ export class Hud {
     this.scrubber = root.querySelector('#scrubber') as HTMLInputElement
     this.playBtn = root.querySelector('#play-toggle') as HTMLButtonElement
     this.muteBtn = root.querySelector('#mute-toggle') as HTMLButtonElement
+    this.cardTitleEl = root.querySelector('#card-title') as HTMLElement
+
+    root.querySelectorAll<HTMLButtonElement>('.panel-toggle').forEach((button) => {
+      button.addEventListener('click', () => this.togglePanel(button))
+    })
 
     root.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -206,8 +228,8 @@ export class Hud {
       ? `<a href="${escapeHtml(event.url)}" target="_blank" rel="noreferrer">Source</a>`
       : ''
 
+    this.cardTitleEl.textContent = event.place
     this.cardEl.innerHTML = `
-      <h2>${escapeHtml(event.place)}</h2>
       <p class="mag">${escapeHtml(formatMag(event))}</p>
       <dl>
         <div><dt>Time</dt><dd>${escapeHtml(formatTime(event.time))}</dd></div>
@@ -218,6 +240,14 @@ export class Hud {
       </dl>
       ${link}
     `
+  }
+
+  private togglePanel(button: HTMLButtonElement): void {
+    const panel = button.closest('.panel')
+    if (!panel) return
+    const collapsed = panel.classList.toggle('collapsed')
+    button.textContent = collapsed ? 'Expand' : 'Collapse'
+    button.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
   }
 
   private setToggleGroup(selector: string, active: HTMLButtonElement): void {

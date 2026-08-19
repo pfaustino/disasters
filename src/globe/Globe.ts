@@ -19,6 +19,9 @@ export class Globe {
   private readonly pacificPos = new THREE.Vector3()
   private readonly container: HTMLElement
 
+  private pinchStart = 0
+  private pinching = false
+
   constructor(container: HTMLElement) {
     this.container = container
     this.scene.background = new THREE.Color(0x05070a)
@@ -45,9 +48,12 @@ export class Globe {
     this.controls.enableDamping = true
     this.controls.dampingFactor = 0.08
     this.controls.enablePan = false
+    this.controls.enableZoom = true
     this.controls.minDistance = 1.35
-    this.controls.maxDistance = 5
+    this.controls.maxDistance = 6.5
     this.controls.target.set(0, 0, 0)
+    this.controls.touches.ONE = THREE.TOUCH.ROTATE
+    this.controls.touches.TWO = THREE.TOUCH.PAN
     this.controls.update()
 
     this.scene.add(this.makeEarth())
@@ -56,6 +62,7 @@ export class Globe {
     this.ripples = new RipplePool()
     this.scene.add(this.ripples.group)
 
+    this.bindPinchZoom()
     window.addEventListener('resize', this.onResize)
   }
 
@@ -80,6 +87,7 @@ export class Globe {
 
   dispose(): void {
     window.removeEventListener('resize', this.onResize)
+    this.unbindPinchZoom()
     this.controls.dispose()
     this.renderer.dispose()
   }
@@ -115,6 +123,48 @@ export class Globe {
     )
   }
 
+  private bindPinchZoom(): void {
+    window.addEventListener('touchstart', this.onPinchStart, { passive: true })
+    window.addEventListener('touchmove', this.onPinchMove, { passive: false })
+    window.addEventListener('touchend', this.onPinchEnd, { passive: true })
+    window.addEventListener('touchcancel', this.onPinchEnd, { passive: true })
+  }
+
+  private unbindPinchZoom(): void {
+    window.removeEventListener('touchstart', this.onPinchStart)
+    window.removeEventListener('touchmove', this.onPinchMove)
+    window.removeEventListener('touchend', this.onPinchEnd)
+    window.removeEventListener('touchcancel', this.onPinchEnd)
+  }
+
+  private onPinchStart = (event: TouchEvent): void => {
+    if (event.touches.length !== 2 || touchesOnRange(event)) {
+      this.pinching = false
+      this.controls.enableRotate = true
+      return
+    }
+    this.pinching = true
+    this.pinchStart = touchDistance(event.touches[0], event.touches[1])
+    this.controls.enableRotate = false
+  }
+
+  private onPinchMove = (event: TouchEvent): void => {
+    if (!this.pinching || event.touches.length !== 2) return
+    event.preventDefault()
+    const distance = touchDistance(event.touches[0], event.touches[1])
+    if (this.pinchStart <= 0 || distance <= 0) return
+    const ratio = distance / this.pinchStart
+    this.pinchStart = distance
+    this.controls.dollyOut(Math.pow(ratio, this.controls.zoomSpeed))
+    this.controls.update()
+  }
+
+  private onPinchEnd = (event: TouchEvent): void => {
+    if (event.touches.length >= 2) return
+    this.pinching = false
+    this.controls.enableRotate = true
+  }
+
   private onResize = (): void => {
     const width = this.container.clientWidth
     const height = Math.max(1, this.container.clientHeight)
@@ -122,4 +172,16 @@ export class Globe {
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(width, height)
   }
+}
+
+function touchDistance(a: Touch, b: Touch): number {
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+}
+
+function touchesOnRange(event: TouchEvent): boolean {
+  for (let i = 0; i < event.touches.length; i += 1) {
+    const target = event.touches[i].target
+    if (target instanceof HTMLInputElement && target.type === 'range') return true
+  }
+  return false
 }
