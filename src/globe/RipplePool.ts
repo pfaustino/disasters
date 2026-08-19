@@ -27,6 +27,7 @@ const SURFACE_LIFT = 1.006
 
 export class RipplePool {
   readonly group = new THREE.Group()
+  enabled = true
   private readonly blips: Slot[]
   private readonly rings: Slot[]
   private readonly tmpPos = new THREE.Vector3()
@@ -44,6 +45,7 @@ export class RipplePool {
   }
 
   spawn(event: QuakeEvent): void {
+    if (!this.enabled) return
     const mag = event.mag ?? 4
     this.spawnSlot(this.blips, 'blip', event, magToRadius(mag), magToLifetime(mag))
     if (event.deaths != null && event.deaths > 0) {

@@ -47,6 +47,13 @@ export class Playback {
     this.looped = false
   }
 
+  seekToTime(time: number): void {
+    this.playhead = Math.min(this.sourceEnd, Math.max(this.sourceStart, time))
+    this.index = this.findIndex(this.playhead)
+    this.pauseRemain = 0
+    this.looped = false
+  }
+
   tick(dtMs: number, onEvent: (event: QuakeEvent) => void): boolean {
     this.looped = false
     if (!this.playing || this.events.length === 0) return false

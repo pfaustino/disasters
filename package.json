@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "fetch-noaa": "tsx scripts/fetch-noaa.ts"
+    "fetch-noaa": "tsx scripts/fetch-noaa.ts",
+    "fetch-weather": "tsx scripts/fetch-weather.ts",
+    "fetch-tornadoes": "tsx scripts/fetch-weather.ts",
+    "fetch-hurricanes": "tsx scripts/fetch-weather.ts",
+    "fetch-fires": "tsx scripts/fetch-weather.ts --fires"
   },
   "devDependencies": {
     "@types/three": "^0.185.4",

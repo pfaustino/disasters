@@ -1,4 +1,6 @@
-import type { QuakeEvent } from '../data/types.ts'
+import type { QuakeEvent, WeatherEvent } from '../data/types.ts'
+import { cycloneWord } from '../data/weatherParse.ts'
+import { TimelineDensity, type DensityMarks } from './TimelineDensity.ts'
 
 export type Mode = 'live' | 'history'
 
@@ -7,11 +9,19 @@ export type HudHandlers = {
   onMinMag: (minMag: number) => void
   onSpeed: (speed: number) => void
   onPlayToggle: () => void
+  onStep: (direction: -1 | 1) => void
   onSeek: (fraction: number) => void
   onResetView: () => void
   onMute: (muted: boolean) => void
   onVolume: (volume: number) => void
+  onShowEarthquakes: (show: boolean) => void
   onShowMagLabels: (show: boolean) => void
+  onShowTornadoes: (show: boolean) => void
+  onShowTornadoLabels: (show: boolean) => void
+  onShowHurricanes: (show: boolean) => void
+  onShowHurricaneLabels: (show: boolean) => void
+  onShowFires: (show: boolean) => void
+  onShowFireLabels: (show: boolean) => void
 }
 
 function formatMag(event: QuakeEvent): string {
@@ -43,22 +53,28 @@ export class Hud {
   private readonly playBtn: HTMLButtonElement
   private readonly muteBtn: HTMLButtonElement
   private readonly cardTitleEl: HTMLElement
+  private readonly density: TimelineDensity
   private seeking = false
-  private muted = true
+  private muted = false
+  private playing = true
+  private showQuakes = true
+  private showTornadoes = true
+  private showHurricanes = true
+  private showFires = true
 
   constructor(root: HTMLElement, handlers: HudHandlers) {
     root.innerHTML = `
       <div class="hud-top">
         <section class="panel controls">
           <header class="panel-head">
-            <h1>Pacific Earthquake Globe</h1>
+            <h1>World Disasters</h1>
             <button type="button" class="panel-toggle" aria-expanded="true">Collapse</button>
           </header>
           <div class="panel-body">
-            <p class="lede">Ring of Fire view. Expanding blips scale with magnitude. Deaths appear only when a catalog recorded them.</p>
+            <p class="lede">Worldwide earthquakes, storms, and fires. Expanding blips scale with magnitude. Deaths appear only when a catalog recorded them.</p>
             <div class="row" role="group" aria-label="Catalog">
-              <button type="button" data-mode="live" class="active">Live week</button>
-              <button type="button" data-mode="history">History 1900+</button>
+              <button type="button" data-mode="live">Live week</button>
+              <button type="button" data-mode="history" class="active">History 1900+</button>
             </div>
             <div class="row" role="group" aria-label="Minimum magnitude">
               <button type="button" data-mag="2.5" class="active">M ≥ 2.5</button>
@@ -73,21 +89,54 @@ export class Hud {
               <button type="button" data-speed="60">60×</button>
             </div>
             <div class="row">
-              <button type="button" id="play-toggle">Pause</button>
+              <button type="button" id="play-toggle" title="Space" aria-keyshortcuts="Space">Pause</button>
               <button type="button" id="reset-view">Pacific view</button>
             </div>
+            <p class="note keys">Space pause/play. While paused, ← → previous/next event.</p>
             <div class="row sound-row">
-              <button type="button" id="mute-toggle" aria-pressed="true">Sound off</button>
+              <button type="button" id="mute-toggle" class="active" aria-pressed="false">Sound on</button>
               <label class="volume">
                 Volume
                 <input id="volume" type="range" min="0" max="100" value="80" />
               </label>
             </div>
-            <label class="check">
-              <input id="show-mag-labels" type="checkbox" />
-              Show magnitude on globe
-            </label>
-            <p class="note">Magnitude uses the reported scale (Mw, ML, mb, …). ML is the original Richter scale; large events are usually Mw.</p>
+            <div class="layer-grid" role="group" aria-label="Disaster layers">
+              <span class="layer-head">Disasters</span>
+              <span class="layer-head">Labels</span>
+              <label class="check">
+                <input id="show-quakes" type="checkbox" checked />
+                Earthquakes
+              </label>
+              <label class="check">
+                <input id="show-quake-labels" type="checkbox" checked />
+                <span class="vh">Earthquakes labels</span>
+              </label>
+              <label class="check">
+                <input id="show-tornadoes" type="checkbox" checked />
+                Tornadoes
+              </label>
+              <label class="check">
+                <input id="show-tornado-labels" type="checkbox" checked />
+                <span class="vh">Tornado labels</span>
+              </label>
+              <label class="check">
+                <input id="show-hurricanes" type="checkbox" checked />
+                Hurricanes/Typhoons
+              </label>
+              <label class="check">
+                <input id="show-hurricane-labels" type="checkbox" checked />
+                <span class="vh">Hurricane labels</span>
+              </label>
+              <label class="check">
+                <input id="show-fires" type="checkbox" checked />
+                Fires
+              </label>
+              <label class="check">
+                <input id="show-fire-labels" type="checkbox" checked />
+                <span class="vh">Fire labels</span>
+              </label>
+            </div>
+            <p class="note">Magnitude uses the reported scale (Mw, ML, mb, …). ML is the original Richter scale; large events are usually Mw. History weather: U.S. EF2+ tornadoes (1950+); Cat 1+ Atlantic &amp; East/Central Pacific (HURDAT2) plus western Pacific typhoons and other-basin cyclones (IBTrACS); U.S. 10,000+ acre wildfires (NIFC) plus named/large EONET fires.</p>
           </div>
         </section>
         <section class="panel card">
@@ -114,9 +163,16 @@ export class Hud {
                 <span id="deaths-stat">Deaths <strong id="stat-deaths">0</strong></span>
               </div>
             </div>
+            <div class="density-legend" aria-hidden="true">
+              <span class="quake">Earthquakes</span>
+              <span class="tornado">Tornadoes</span>
+              <span class="storm">Hurricanes/Typhoons</span>
+              <span class="fire">Fires</span>
+            </div>
+            <canvas id="timeline-density" class="density" width="800" height="48" aria-hidden="true"></canvas>
             <input id="scrubber" type="range" min="0" max="1000" value="0" />
             <p class="status" id="status">Loading catalogs…</p>
-            <p class="attr">Live: USGS earthquake feed. History: NOAA NCEI Significant Earthquake Database. Globe: NASA Blue Marble.</p>
+            <p class="attr">Live: USGS earthquakes, NWS/IEM tornadoes, NHC hurricanes, JMA typhoons, NASA EONET/NIFC fires. History: NOAA NCEI quakes, SPC EF2+ tornadoes, HURDAT2/IBTrACS tropical cyclones, NIFC 10k+ acre wildfires and EONET fires. Globe: NASA Blue Marble.</p>
           </div>
         </div>
       </div>
@@ -133,6 +189,8 @@ export class Hud {
     this.playBtn = root.querySelector('#play-toggle') as HTMLButtonElement
     this.muteBtn = root.querySelector('#mute-toggle') as HTMLButtonElement
     this.cardTitleEl = root.querySelector('#card-title') as HTMLElement
+    const densityCanvas = root.querySelector('#timeline-density') as HTMLCanvasElement
+    this.density = new TimelineDensity(densityCanvas)
 
     root.querySelectorAll<HTMLButtonElement>('.panel-toggle').forEach((button) => {
       button.addEventListener('click', () => this.togglePanel(button))
@@ -158,6 +216,7 @@ export class Hud {
     })
     this.playBtn.addEventListener('click', () => handlers.onPlayToggle())
     root.querySelector('#reset-view')?.addEventListener('click', () => handlers.onResetView())
+    window.addEventListener('keydown', (event) => this.onKeyDown(event, handlers))
     this.muteBtn.addEventListener('click', () => {
       handlers.onMute(!this.muted)
     })
@@ -165,9 +224,45 @@ export class Hud {
       const target = event.target as HTMLInputElement
       handlers.onVolume(Number(target.value) / 100)
     })
-    root.querySelector<HTMLInputElement>('#show-mag-labels')?.addEventListener('change', (event) => {
+    root.querySelector<HTMLInputElement>('#show-quakes')?.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement
+      this.showQuakes = target.checked
+      this.syncDensityVisible()
+      handlers.onShowEarthquakes(target.checked)
+    })
+    root.querySelector<HTMLInputElement>('#show-quake-labels')?.addEventListener('change', (event) => {
       const target = event.target as HTMLInputElement
       handlers.onShowMagLabels(target.checked)
+    })
+    root.querySelector<HTMLInputElement>('#show-tornadoes')?.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement
+      this.showTornadoes = target.checked
+      this.syncDensityVisible()
+      handlers.onShowTornadoes(target.checked)
+    })
+    root.querySelector<HTMLInputElement>('#show-tornado-labels')?.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement
+      handlers.onShowTornadoLabels(target.checked)
+    })
+    root.querySelector<HTMLInputElement>('#show-hurricanes')?.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement
+      this.showHurricanes = target.checked
+      this.syncDensityVisible()
+      handlers.onShowHurricanes(target.checked)
+    })
+    root.querySelector<HTMLInputElement>('#show-hurricane-labels')?.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement
+      handlers.onShowHurricaneLabels(target.checked)
+    })
+    root.querySelector<HTMLInputElement>('#show-fires')?.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement
+      this.showFires = target.checked
+      this.syncDensityVisible()
+      handlers.onShowFires(target.checked)
+    })
+    root.querySelector<HTMLInputElement>('#show-fire-labels')?.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement
+      handlers.onShowFireLabels(target.checked)
     })
 
     this.scrubber.addEventListener('pointerdown', () => {
@@ -181,7 +276,23 @@ export class Hud {
     })
   }
 
+  private onKeyDown(event: KeyboardEvent, handlers: HudHandlers): void {
+    if (isEditableTarget(event.target)) return
+    if (event.code === 'Space') {
+      if (event.repeat) return
+      event.preventDefault()
+      handlers.onPlayToggle()
+      return
+    }
+    if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
+      if (this.playing) return
+      event.preventDefault()
+      handlers.onStep(event.code === 'ArrowLeft' ? -1 : 1)
+    }
+  }
+
   setPlaying(playing: boolean): void {
+    this.playing = playing
     this.playBtn.textContent = playing ? 'Pause' : 'Play'
   }
 
@@ -215,7 +326,15 @@ export class Hud {
     this.deathsEl.textContent = deaths.toLocaleString('en-US')
   }
 
-  showEvent(event: QuakeEvent): void {
+  setDensity(marks: DensityMarks | null): void {
+    this.density.setMarks(marks)
+  }
+
+  showEvent(event: QuakeEvent | WeatherEvent): void {
+    if ('kind' in event) {
+      this.showWeather(event)
+      return
+    }
     const extra: string[] = []
     if (event.country) extra.push(`<div><dt>Country</dt><dd>${escapeHtml(event.country)}</dd></div>`)
     if (event.injuries != null) extra.push(`<div><dt>Injuries</dt><dd>${formatNumber(event.injuries, '—')}</dd></div>`)
@@ -251,6 +370,58 @@ export class Hud {
     `
   }
 
+  private showWeather(event: WeatherEvent): void {
+    const extra: string[] = []
+    if (event.kind === 'tornado' && event.efRating != null) {
+      extra.push(`<div><dt>EF rating</dt><dd>EF${event.efRating}</dd></div>`)
+    }
+    if (event.kind === 'hurricane') {
+      extra.push(
+        `<div><dt>Category</dt><dd>${event.category != null ? `Category ${event.category}` : 'tropical storm'}</dd></div>`,
+      )
+    }
+    if (event.kind === 'fire' && event.acres != null) {
+      extra.push(`<div><dt>Acres</dt><dd>${formatNumber(Math.round(event.acres), '—')}</dd></div>`)
+    }
+    if (event.windKt != null) extra.push(`<div><dt>Winds</dt><dd>${event.windKt} kt</dd></div>`)
+    if (event.injuries != null) extra.push(`<div><dt>Injuries</dt><dd>${formatNumber(event.injuries, '—')}</dd></div>`)
+    if (event.name) extra.push(`<div><dt>Name</dt><dd>${escapeHtml(event.name)}</dd></div>`)
+
+    const deaths = event.deaths == null ? 'unknown' : formatNumber(event.deaths, 'unknown')
+    const link = event.url
+      ? `<a href="${escapeHtml(event.url)}" target="_blank" rel="noreferrer">Source</a>`
+      : ''
+    const word = cycloneWord(event)
+    const headline =
+      event.kind === 'tornado'
+        ? event.efRating != null
+          ? `EF${event.efRating} tornado`
+          : 'Tornado'
+        : event.kind === 'fire'
+          ? event.name
+            ? `Fire ${event.name}`
+            : 'Fire'
+          : event.name
+            ? `${event.category != null ? `Category ${event.category} ` : ''}${word} ${event.name}`
+            : word
+    const kindClass = event.kind === 'tornado' ? 'tornado' : event.kind === 'fire' ? 'fire' : 'hurricane'
+
+    this.cardTitleEl.textContent = event.place
+    this.cardEl.innerHTML = `
+      <p class="mag ${kindClass}">${escapeHtml(headline)}</p>
+      <dl>
+        <div><dt>Time</dt><dd>${escapeHtml(formatTime(event.time))}</dd></div>
+        <div><dt>Deaths</dt><dd>${deaths}</dd></div>
+        ${extra.join('')}
+      </dl>
+      ${link}
+    `
+  }
+
+  private syncDensityVisible(): void {
+    this.density.setVisible(this.showQuakes, this.showTornadoes, this.showHurricanes, this.showFires)
+  }
+
   private togglePanel(button: HTMLButtonElement): void {
     const panel = button.closest('.panel')
     if (!panel) return
@@ -264,6 +435,16 @@ export class Hud {
       button.classList.toggle('active', button === active)
     })
   }
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  const tag = target.tagName
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true
+  if (tag !== 'INPUT') return false
+  const type = (target as HTMLInputElement).type
+  return type === 'text' || type === 'search' || type === 'checkbox'
 }
 
 function escapeHtml(value: string): string {

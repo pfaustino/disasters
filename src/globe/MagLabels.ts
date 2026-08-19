@@ -21,7 +21,7 @@ const LABEL_LIFT = 1.045
 
 export class MagLabelPool {
   readonly group = new THREE.Group()
-  enabled = false
+  enabled = true
   private readonly slots: Slot[]
   private readonly tmpPos = new THREE.Vector3()
   private cursor = 0
@@ -103,11 +103,11 @@ export class MagLabelPool {
 
 function drawMag(ctx: CanvasRenderingContext2D, mag: number): void {
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H)
-  ctx.font = '700 72px "Segoe UI", system-ui, sans-serif'
+  ctx.font = '700 36px "Segoe UI", system-ui, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.lineJoin = 'round'
-  ctx.lineWidth = 14
+  ctx.lineWidth = 7
   ctx.strokeStyle = 'rgba(5, 7, 10, 0.9)'
   ctx.fillStyle = '#f4ece3'
   const text = mag.toFixed(1)

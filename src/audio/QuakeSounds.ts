@@ -8,7 +8,7 @@ export class QuakeSounds {
   private master: GainNode | null = null
   private noise: AudioBuffer | null = null
   private voices = 0
-  private muted = true
+  private muted = false
   private volume = 0.8
 
   isMuted(): boolean {

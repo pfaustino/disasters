@@ -1,5 +1,37 @@
 export type CatalogSource = 'usgs' | 'noaa'
 
+export type WeatherKind = 'tornado' | 'hurricane' | 'fire'
+
+export type WeatherSource = 'nws' | 'iem' | 'spc' | 'nhc' | 'hurdat' | 'ibtracs' | 'jma' | 'eonet' | 'nifc'
+
+export type WeatherTrackPoint = {
+  time: number
+  lat: number
+  lon: number
+  windKt: number | null
+}
+
+export type WeatherEvent = {
+  id: string
+  kind: WeatherKind
+  time: number
+  endTime: number | null
+  lat: number
+  lon: number
+  place: string
+  name: string | null
+  efRating: number | null
+  category: number | null
+  windKt: number | null
+  acres: number | null
+  deaths: number | null
+  injuries: number | null
+  url: string | null
+  track: WeatherTrackPoint[] | null
+  source: WeatherSource
+  basin?: string | null
+}
+
 export type PagerAlert = 'green' | 'yellow' | 'orange' | 'red'
 
 export type QuakeEvent = {

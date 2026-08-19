@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import type { QuakeEvent } from '../data/types.ts'
+import type { QuakeEvent, WeatherEvent } from '../data/types.ts'
 import {
   CAMERA_DISTANCE,
   GLOBE_RADIUS,
@@ -8,8 +8,12 @@ import {
   PACIFIC_LON,
   latLonToVector3,
 } from './geo.ts'
+import { FirePool } from './FirePool.ts'
+import { HurricanePool } from './HurricanePool.ts'
 import { MagLabelPool } from './MagLabels.ts'
 import { RipplePool } from './RipplePool.ts'
+import { StormLabelPool } from './StormLabels.ts'
+import { TornadoPool } from './TornadoPool.ts'
 
 export class Globe {
   readonly renderer: THREE.WebGLRenderer
@@ -17,6 +21,10 @@ export class Globe {
   readonly controls: OrbitControls
   readonly ripples: RipplePool
   readonly labels: MagLabelPool
+  readonly tornadoes: TornadoPool
+  readonly hurricanes: HurricanePool
+  readonly fires: FirePool
+  readonly stormLabels: StormLabelPool
   private readonly scene = new THREE.Scene()
   private readonly pacificPos = new THREE.Vector3()
   private readonly container: HTMLElement
@@ -65,14 +73,37 @@ export class Globe {
     this.scene.add(this.ripples.group)
     this.labels = new MagLabelPool()
     this.scene.add(this.labels.group)
+    this.stormLabels = new StormLabelPool()
+    this.tornadoes = new TornadoPool(this.stormLabels)
+    this.scene.add(this.tornadoes.group)
+    this.hurricanes = new HurricanePool(this.stormLabels)
+    this.scene.add(this.hurricanes.group)
+    this.fires = new FirePool(this.stormLabels)
+    this.scene.add(this.fires.group)
+    this.scene.add(this.stormLabels.group)
 
     this.bindPinchZoom()
     window.addEventListener('resize', this.onResize)
   }
 
   spawn(event: QuakeEvent): void {
+    if (!this.ripples.enabled) return
     this.ripples.spawn(event)
     this.labels.spawn(event)
+  }
+
+  spawnWeather(event: WeatherEvent): void {
+    if (event.kind === 'tornado') this.tornadoes.spawn(event)
+    else if (event.kind === 'hurricane') this.hurricanes.spawn(event)
+    else this.fires.spawn(event)
+  }
+
+  setShowEarthquakes(show: boolean): void {
+    this.ripples.enabled = show
+    if (!show) {
+      this.ripples.clear()
+      this.labels.clear()
+    }
   }
 
   setShowMagLabels(show: boolean): void {
@@ -80,9 +111,40 @@ export class Globe {
     if (!show) this.labels.clear()
   }
 
+  setShowTornadoes(show: boolean): void {
+    this.tornadoes.enabled = show
+    if (!show) this.tornadoes.clear()
+  }
+
+  setShowTornadoLabels(show: boolean): void {
+    this.stormLabels.setShow('tornado', show)
+  }
+
+  setShowHurricanes(show: boolean): void {
+    this.hurricanes.enabled = show
+    if (!show) this.hurricanes.clear()
+  }
+
+  setShowHurricaneLabels(show: boolean): void {
+    this.stormLabels.setShow('hurricane', show)
+  }
+
+  setShowFires(show: boolean): void {
+    this.fires.enabled = show
+    if (!show) this.fires.clear()
+  }
+
+  setShowFireLabels(show: boolean): void {
+    this.stormLabels.setShow('fire', show)
+  }
+
   clearMarks(): void {
     this.ripples.clear()
     this.labels.clear()
+    this.tornadoes.clear()
+    this.hurricanes.clear()
+    this.fires.clear()
+    this.stormLabels.clear()
   }
 
   resetToPacific(): void {
@@ -94,6 +156,10 @@ export class Globe {
   update(dtSec: number): void {
     this.ripples.update(dtSec)
     this.labels.update(dtSec)
+    this.tornadoes.update(dtSec)
+    this.hurricanes.update(dtSec)
+    this.fires.update(dtSec)
+    this.stormLabels.update(dtSec)
     this.controls.update()
   }
 

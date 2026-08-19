@@ -131,14 +131,46 @@ body {
   margin: 10px 0 0;
 }
 
+.note.keys {
+  margin: 6px 0 8px;
+}
+
 .check {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 2px 0 8px;
+  margin: 2px 0 4px;
   color: #e8eef4;
   font-size: 13px;
   cursor: pointer;
+}
+
+.layer-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 16px;
+  align-items: center;
+  margin: 8px 0 4px;
+}
+
+.layer-grid .check {
+  margin: 0;
+  min-height: 22px;
+}
+
+.layer-head {
+  color: #8b9aab;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
 }
 
 .check input {
@@ -260,6 +292,44 @@ dd {
   touch-action: pan-x;
 }
 
+.density-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 0 0 4px;
+  font-size: 11px;
+  color: #8b9aab;
+}
+
+.density-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.density-legend span::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.density-legend .quake::before { background: #e8a87c; }
+.density-legend .tornado::before { background: #d4a574; }
+.density-legend .storm::before { background: #8ec8e8; }
+.density-legend .fire::before { background: #ff6e30; }
+
+.density {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin: 0 0 6px;
+  pointer-events: none;
+}
+
+.mag.tornado { color: #d4a574; }
+.mag.hurricane { color: #8ec8e8; }
+.mag.fire { color: #ff6e30; }
 .pager.green { color: #7dce8a; }
 .pager.yellow { color: #e6d36a; }
 .pager.orange { color: #e8a87c; }

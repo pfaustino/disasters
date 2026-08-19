@@ -1,11 +1,24 @@
 import * as THREE from 'three'
 
 export const GLOBE_RADIUS = 1
-export const PACIFIC_LAT = 0
-export const PACIFIC_LON = -160
+// Default view: 200 statute miles due west of Punta Eugenia (Baja California's
+// western tip, ~27.846°N, 115.085°W). At this latitude, 1° lon ≈ 61.17 mi,
+// so 200 mi ≈ 3.27° → 27.85°N, 118.36°W.
+export const PACIFIC_LAT = 27.85
+export const PACIFIC_LON = -118.36
 export const CAMERA_DISTANCE = 4.6
 
 const DEG = Math.PI / 180
+
+export function lerpLongitude(a: number, b: number, t: number): number {
+  let delta = b - a
+  if (delta > 180) delta -= 360
+  if (delta < -180) delta += 360
+  let lon = a + delta * t
+  if (lon > 180) lon -= 360
+  if (lon < -180) lon += 360
+  return lon
+}
 
 export function latLonToVector3(
   lat: number,
