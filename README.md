@@ -1,6 +1,8 @@
 # World Disasters
 
-Live site: [https://pfaustino.github.io/earthquakes/](https://pfaustino.github.io/earthquakes/)
+Live site: [https://pfaustino.github.io/disasters/](https://pfaustino.github.io/disasters/)
+
+The previous URL, [https://pfaustino.github.io/earthquakes/](https://pfaustino.github.io/earthquakes/), redirects here.
 
 A globe of worldwide earthquakes, tornadoes, hurricanes/typhoons, and wildfires. **Live week** plays recent USGS, NWS/NHC/JMA, and EONET/NIFC feeds. **History 1900+** plays NOAA significant quakes plus bundled storm and fire catalogs. The default camera faces the Pacific; **Pacific view** resets to that pose.
 
