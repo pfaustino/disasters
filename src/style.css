@@ -85,8 +85,28 @@ body {
   gap: 10px;
 }
 
+.place-search-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
 .place-search-field {
   position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.place-step {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.place-step:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .place-search input {
@@ -107,7 +127,14 @@ body {
   font-size: 11px;
 }
 
-.panel.collapsed .place-hint {
+.place-count {
+  margin: 2px 0 0;
+  color: #c5d4e4;
+  font-size: 11px;
+}
+
+.panel.collapsed .place-hint,
+.panel.collapsed .place-count {
   display: none;
 }
 

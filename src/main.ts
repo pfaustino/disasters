@@ -2,6 +2,8 @@ import './style.css'
 import { loadNoaaEvents } from './data/noaa.ts'
 import { loadUsgsEvents } from './data/usgs.ts'
 import { clampWeatherTimes, loadHistoryWeather, loadLiveWeather, weatherInWindow } from './data/weather.ts'
+import type { PlaceHit } from './data/geocode.ts'
+import { matchPlaceEvents, samePlaceMatch, type PlaceMatch } from './data/placeMatch.ts'
 import type { QuakeEvent, WeatherEvent } from './data/types.ts'
 import { QuakeSounds } from './audio/QuakeSounds.ts'
 import { Globe } from './globe/Globe.ts'
@@ -35,6 +37,14 @@ let weatherNotice: string | null = null
 let eventsShown = 0
 let maxMag = Number.NEGATIVE_INFINITY
 let deathsShown = 0
+let showQuakes = true
+let showTornadoes = true
+let showHurricanes = true
+let showFires = true
+let placeHit: PlaceHit | null = null
+let placeMatches: PlaceMatch[] = []
+let placeCursor = -1
+let placeWaitingForMatches = false
 
 type StepItem = {
   time: number
@@ -62,13 +72,20 @@ const hud = new Hud(hudRoot, {
     playback.playing = !playback.playing
     hud.setPlaying(playback.playing)
   },
-  onStep: (direction) => stepEvent(direction),
+  onStep: (direction) => {
+    if (placeHit) stepPlaceEvent(direction)
+    else stepEvent(direction)
+  },
   onSeek: (fraction) => {
     playback.seekFraction(fraction)
     weatherPlay.seekTo(playback.playhead)
     globe.clearMarks()
     hud.setClock(playback.playhead)
     stepCursorPlayhead = Number.NaN
+    if (placeHit) {
+      placeCursor = -1
+      placeWaitingForMatches = false
+    }
   },
   onResetView: () => globe.resetToPacific(),
   onMute: (muted) => {
@@ -77,15 +94,32 @@ const hud = new Hud(hudRoot, {
   onVolume: (volume) => {
     void sounds.setVolume(volume).then(() => hud.setMuted(sounds.isMuted()))
   },
-  onShowEarthquakes: (show) => globe.setShowEarthquakes(show),
+  onShowEarthquakes: (show) => {
+    showQuakes = show
+    globe.setShowEarthquakes(show)
+    rematchPlaceFilter()
+  },
   onShowMagLabels: (show) => globe.setShowMagLabels(show),
-  onShowTornadoes: (show) => globe.setShowTornadoes(show),
+  onShowTornadoes: (show) => {
+    showTornadoes = show
+    globe.setShowTornadoes(show)
+    rematchPlaceFilter()
+  },
   onShowTornadoLabels: (show) => globe.setShowTornadoLabels(show),
-  onShowHurricanes: (show) => globe.setShowHurricanes(show),
+  onShowHurricanes: (show) => {
+    showHurricanes = show
+    globe.setShowHurricanes(show)
+    rematchPlaceFilter()
+  },
   onShowHurricaneLabels: (show) => globe.setShowHurricaneLabels(show),
-  onShowFires: (show) => globe.setShowFires(show),
+  onShowFires: (show) => {
+    showFires = show
+    globe.setShowFires(show)
+    rematchPlaceFilter()
+  },
   onShowFireLabels: (show) => globe.setShowFireLabels(show),
-  onLookAtPlace: (lat, lon) => globe.lookAtLatLon(lat, lon),
+  onChoosePlace: (hit) => applyPlaceFilter(hit),
+  onClearPlace: () => clearPlaceFilter(),
 })
 
 hud.setShowDeaths(false)
@@ -167,6 +201,7 @@ function applyCatalog(): void {
         },
   )
   rebuildStepItems(filtered, weatherPlay.events)
+  rematchPlaceFilter()
   setCatalogStatus(filtered.length)
 }
 
@@ -200,6 +235,128 @@ function lastStepIndexAtOrBefore(time: number): number {
     }
   }
   return found
+}
+
+function layerFlags(): { earthquakes: boolean; tornadoes: boolean; hurricanes: boolean; fires: boolean } {
+  return {
+    earthquakes: showQuakes,
+    tornadoes: showTornadoes,
+    hurricanes: showHurricanes,
+    fires: showFires,
+  }
+}
+
+function applyPlaceFilter(hit: PlaceHit): void {
+  placeHit = hit
+  placeMatches = matchPlaceEvents(hit, playback.events, weatherPlay.events, layerFlags())
+  placeCursor = -1
+  placeWaitingForMatches = placeMatches.length === 0
+  hud.setPlaceFilter(hit.name, placeMatches.length)
+  if (placeMatches.length === 0) {
+    globe.lookAtLatLon(hit.lat, hit.lon)
+    return
+  }
+  showPlaceMatch(0)
+}
+
+function rematchPlaceFilter(): void {
+  if (!placeHit) return
+  const prev = placeCursor >= 0 ? placeMatches[placeCursor] : null
+  placeMatches = matchPlaceEvents(placeHit, playback.events, weatherPlay.events, layerFlags())
+  hud.setPlaceFilter(placeHit.name, placeMatches.length)
+  if (placeMatches.length === 0) {
+    placeCursor = -1
+    return
+  }
+  if (prev) {
+    const idx = placeMatches.findIndex((match) => samePlaceMatch(match, prev))
+    if (idx >= 0) {
+      showPlaceMatch(idx)
+      return
+    }
+  }
+  if (placeWaitingForMatches) {
+    placeWaitingForMatches = false
+    showPlaceMatch(0)
+  }
+}
+
+function clearPlaceFilter(): void {
+  if (!placeHit) return
+  placeHit = null
+  placeMatches = []
+  placeCursor = -1
+  placeWaitingForMatches = false
+  hud.setPlaceFilter(null, 0)
+}
+
+function firstPlaceIndexAfter(time: number): number {
+  let lo = 0
+  let hi = placeMatches.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (placeMatches[mid].time <= time) lo = mid + 1
+    else hi = mid
+  }
+  return lo < placeMatches.length ? lo : -1
+}
+
+function lastPlaceIndexBefore(time: number): number {
+  let lo = 0
+  let hi = placeMatches.length - 1
+  let found = -1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (placeMatches[mid].time < time) {
+      found = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return found
+}
+
+function stepPlaceEvent(direction: -1 | 1): void {
+  if (placeMatches.length === 0) return
+  const next =
+    direction > 0 ? firstPlaceIndexAfter(playback.playhead) : lastPlaceIndexBefore(playback.playhead)
+  if (next < 0) {
+    hud.setPlaceBoundHint(direction)
+    return
+  }
+  showPlaceMatch(next)
+}
+
+function showPlaceMatch(index: number): void {
+  const match = placeMatches[index]
+  if (!match) return
+  placeCursor = index
+  playback.playing = false
+  hud.setPlaying(false)
+  playback.seekToTime(match.time)
+  if (match.quake) {
+    const quakeIndex = playback.events.indexOf(match.quake)
+    if (quakeIndex >= 0) playback.index = quakeIndex + 1
+  }
+  weatherPlay.seekTo(match.time)
+  if (match.weather) {
+    const weatherIndex = weatherPlay.events.indexOf(match.weather)
+    if (weatherIndex >= 0) weatherPlay.index = weatherIndex + 1
+  }
+  stepCursorPlayhead = playback.playhead
+  globe.clearMarks()
+  if (match.quake) {
+    globe.spawn(match.quake)
+    sounds.play(match.quake, playback.speed)
+    hud.showEvent(match.quake)
+  } else if (match.weather) {
+    onWeather(match.weather)
+  }
+  globe.lookAtLatLon(match.lat, match.lon)
+  hud.setClock(playback.playhead)
+  hud.setFraction(playback.fraction())
+  if (placeHit) hud.setPlaceFilter(placeHit.name, placeMatches.length)
 }
 
 function stepEvent(direction: -1 | 1): void {

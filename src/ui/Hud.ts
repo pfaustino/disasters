@@ -23,7 +23,8 @@ export type HudHandlers = {
   onShowHurricaneLabels: (show: boolean) => void
   onShowFires: (show: boolean) => void
   onShowFireLabels: (show: boolean) => void
-  onLookAtPlace: (lat: number, lon: number) => void
+  onChoosePlace: (hit: PlaceHit) => void
+  onClearPlace: () => void
 }
 
 function formatMag(event: QuakeEvent): string {
@@ -65,8 +66,13 @@ export class Hud {
   private showFires = true
   private readonly placeInput: HTMLInputElement
   private readonly placeResults: HTMLElement
+  private readonly placeCountEl: HTMLElement
+  private readonly placePrevBtn: HTMLButtonElement
+  private readonly placeNextBtn: HTMLButtonElement
   private readonly placeSearcher: PlaceSearcher
   private placeHits: PlaceHit[] = []
+  private placeFilterActive = false
+  private placeName: string | null = null
 
   constructor(root: HTMLElement, handlers: HudHandlers) {
     root.innerHTML = `
@@ -78,11 +84,16 @@ export class Hud {
               <button type="button" class="panel-toggle" aria-expanded="true">Collapse</button>
             </div>
             <div class="place-search">
-              <div class="place-search-field">
-                <input id="place-search" type="search" placeholder="Search a place…" autocomplete="off" spellcheck="false" aria-label="Search a place" aria-controls="place-results" aria-autocomplete="list" aria-expanded="false" />
-                <ul id="place-results" class="place-results" hidden role="listbox"></ul>
+              <div class="place-search-row">
+                <div class="place-search-field">
+                  <input id="place-search" type="search" placeholder="Search a place…" autocomplete="off" spellcheck="false" aria-label="Search a place" aria-controls="place-results" aria-autocomplete="list" aria-expanded="false" />
+                  <ul id="place-results" class="place-results" hidden role="listbox"></ul>
+                </div>
+                <button type="button" id="place-prev" class="place-step" title="Previous event here" aria-label="Previous event here" disabled>◀</button>
+                <button type="button" id="place-next" class="place-step" title="Next event here" aria-label="Next event here" disabled>▶</button>
               </div>
-              <p class="place-hint">Moves the globe. Does not filter events.</p>
+              <p class="place-hint">Jumps to events here. ← → next/previous.</p>
+              <p class="place-count" id="place-count" hidden></p>
             </div>
           </header>
           <div class="panel-body">
@@ -206,6 +217,9 @@ export class Hud {
     this.cardTitleEl = root.querySelector('#card-title') as HTMLElement
     this.placeInput = root.querySelector('#place-search') as HTMLInputElement
     this.placeResults = root.querySelector('#place-results') as HTMLElement
+    this.placeCountEl = root.querySelector('#place-count') as HTMLElement
+    this.placePrevBtn = root.querySelector('#place-prev') as HTMLButtonElement
+    this.placeNextBtn = root.querySelector('#place-next') as HTMLButtonElement
     this.placeSearcher = new PlaceSearcher((hits, status) => this.renderPlaceResults(hits, status))
     const densityCanvas = root.querySelector('#timeline-density') as HTMLCanvasElement
     this.density = new TimelineDensity(densityCanvas)
@@ -283,13 +297,18 @@ export class Hud {
       handlers.onShowFireLabels(target.checked)
     })
 
+    this.placePrevBtn.addEventListener('click', () => handlers.onStep(-1))
+    this.placeNextBtn.addEventListener('click', () => handlers.onStep(1))
     this.placeInput.addEventListener('input', () => {
-      this.placeSearcher.setQuery(this.placeInput.value)
+      const value = this.placeInput.value
+      this.placeSearcher.setQuery(value)
+      if (!value.trim()) handlers.onClearPlace()
     })
     this.placeInput.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
         this.clearPlaceSearch()
+        handlers.onClearPlace()
         return
       }
       if (event.key === 'Enter') {
@@ -325,6 +344,12 @@ export class Hud {
 
   private onKeyDown(event: KeyboardEvent, handlers: HudHandlers): void {
     if (isEditableTarget(event.target)) return
+    if (event.key === 'Escape' && this.placeFilterActive) {
+      event.preventDefault()
+      this.clearPlaceSearch()
+      handlers.onClearPlace()
+      return
+    }
     if (event.code === 'Space') {
       if (event.repeat) return
       event.preventDefault()
@@ -332,10 +357,35 @@ export class Hud {
       return
     }
     if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
-      if (this.playing) return
+      if (!this.placeFilterActive && this.playing) return
       event.preventDefault()
       handlers.onStep(event.code === 'ArrowLeft' ? -1 : 1)
     }
+  }
+
+  setPlaceFilter(name: string | null, count: number): void {
+    this.placeName = name
+    this.placeFilterActive = name != null
+    if (name == null) {
+      this.placeCountEl.hidden = true
+      this.placeCountEl.textContent = ''
+      this.placePrevBtn.disabled = true
+      this.placeNextBtn.disabled = true
+      return
+    }
+    this.placeCountEl.hidden = false
+    this.placeCountEl.textContent =
+      count === 0 ? `No events in ${name}` : `${count.toLocaleString('en-US')} events in ${name}`
+    const canStep = count > 1
+    this.placePrevBtn.disabled = !canStep
+    this.placeNextBtn.disabled = !canStep
+  }
+
+  setPlaceBoundHint(direction: -1 | 1): void {
+    if (this.placeName == null) return
+    this.placeCountEl.hidden = false
+    this.placeCountEl.textContent =
+      direction > 0 ? `No later events in ${this.placeName}` : `No earlier events in ${this.placeName}`
   }
 
   setPlaying(playing: boolean): void {
@@ -483,8 +533,10 @@ export class Hud {
 
   private choosePlace(hit: PlaceHit, handlers: HudHandlers): void {
     this.placeInput.value = hit.label
+    this.placeSearcher.cancel()
     this.hidePlaceResults()
-    handlers.onLookAtPlace(hit.lat, hit.lon)
+    this.placeInput.blur()
+    handlers.onChoosePlace(hit)
   }
 
   private clearPlaceSearch(): void {

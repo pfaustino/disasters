@@ -1,7 +1,19 @@
+export type PlaceKind = 'city' | 'region'
+
+export type PlaceBBox = {
+  minLat: number
+  maxLat: number
+  minLon: number
+  maxLon: number
+}
+
 export type PlaceHit = {
   label: string
+  name: string
   lat: number
   lon: number
+  bbox: PlaceBBox | null
+  kind: PlaceKind
 }
 
 // Nominatim (openstreetmap.org) is the usual no-key geocoder, but it does not
@@ -22,6 +34,10 @@ type PhotonFeature = {
     city?: string
     state?: string
     country?: string
+    type?: string
+    osm_key?: string
+    osm_value?: string
+    extent?: number[]
   }
 }
 
@@ -92,6 +108,18 @@ async function searchPhoton(query: string): Promise<PlaceHit[]> {
   return hits
 }
 
+const REGION_TYPES = new Set([
+  'country',
+  'state',
+  'county',
+  'region',
+  'province',
+  'municipality',
+  'district',
+  'continent',
+  'archipelago',
+])
+
 function toPhotonHit(raw: PhotonFeature): PlaceHit | null {
   const coords = raw.geometry?.coordinates
   if (!coords || coords.length < 2) return null
@@ -99,9 +127,46 @@ function toPhotonHit(raw: PhotonFeature): PlaceHit | null {
   const lat = Number(coords[1])
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
   const props = raw.properties
-  const parts = [props?.name ?? props?.city, props?.state, props?.country]
+  const name = props?.name ?? props?.city ?? ''
+  const parts = [name || null, props?.state, props?.country]
   const label = parts.filter((part, i) => part && parts.indexOf(part) === i).join(', ')
-  return { label: label || 'Unknown place', lat, lon }
+  return {
+    label: label || 'Unknown place',
+    name: name || label || 'Unknown place',
+    lat,
+    lon,
+    bbox: parseExtent(props?.extent),
+    kind: placeKind(props),
+  }
+}
+
+function placeKind(props: PhotonFeature['properties']): PlaceKind {
+  const type = (props?.type ?? '').toLowerCase()
+  const value = (props?.osm_value ?? '').toLowerCase()
+  if (REGION_TYPES.has(type) || REGION_TYPES.has(value)) return 'region'
+  if ((props?.osm_key ?? '').toLowerCase() === 'boundary' && value === 'administrative') {
+    if (type === 'city' || type === 'town' || type === 'village' || type === 'suburb') return 'city'
+    return 'region'
+  }
+  return 'city'
+}
+
+// Photon extent is [west, north, east, south] in examples; take min/max so
+// either lat order works. A lon span over 180° is treated as antimeridian wrap.
+function parseExtent(extent: number[] | undefined): PlaceBBox | null {
+  if (!extent || extent.length < 4) return null
+  const west = Number(extent[0])
+  const latA = Number(extent[1])
+  const east = Number(extent[2])
+  const latB = Number(extent[3])
+  if (![west, latA, east, latB].every(Number.isFinite)) return null
+  const minLat = Math.min(latA, latB)
+  const maxLat = Math.max(latA, latB)
+  if (minLat < -90 || maxLat > 90) return null
+  if (Math.abs(east - west) <= 180) {
+    return { minLat, maxLat, minLon: Math.min(west, east), maxLon: Math.max(west, east) }
+  }
+  return { minLat, maxLat, minLon: Math.max(west, east), maxLon: Math.min(west, east) }
 }
 
 function sleep(ms: number): Promise<void> {
