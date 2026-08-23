@@ -7,6 +7,8 @@ export const GLOBE_RADIUS = 1
 export const PACIFIC_LAT = 27.85
 export const PACIFIC_LON = -118.36
 export const CAMERA_DISTANCE = 4.6
+// Slightly closer than the Baja default so a searched city fills more of the view.
+export const PLACE_CAMERA_DISTANCE = 3.4
 
 const DEG = Math.PI / 180
 

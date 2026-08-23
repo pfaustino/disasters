@@ -72,6 +72,83 @@ body {
   gap: 10px;
 }
 
+.controls .panel-head {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.panel-head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.place-search-field {
+  position: relative;
+}
+
+.place-search input {
+  width: 100%;
+  margin: 0;
+  padding: 5px 8px;
+  border: 1px solid #3a4a5c;
+  background: #121820;
+  color: #e8eef4;
+  font: inherit;
+  font-size: 13px;
+  touch-action: manipulation;
+}
+
+.place-hint {
+  margin: 4px 0 0;
+  color: #8b9aab;
+  font-size: 11px;
+}
+
+.panel.collapsed .place-hint {
+  display: none;
+}
+
+.place-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 2px);
+  z-index: 8;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #121820;
+  border: 1px solid #3a4a5c;
+  max-height: 168px;
+  overflow: auto;
+}
+
+.place-results button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.place-results button:hover,
+.place-results button:focus {
+  background: #1c2633;
+}
+
+.place-status {
+  padding: 6px 10px;
+  color: #8b9aab;
+  font-size: 12px;
+}
+
 .panel-head h1,
 .panel-head h2,
 .panel-head #clock {

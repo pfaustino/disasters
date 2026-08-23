@@ -85,6 +85,7 @@ const hud = new Hud(hudRoot, {
   onShowHurricaneLabels: (show) => globe.setShowHurricaneLabels(show),
   onShowFires: (show) => globe.setShowFires(show),
   onShowFireLabels: (show) => globe.setShowFireLabels(show),
+  onLookAtPlace: (lat, lon) => globe.lookAtLatLon(lat, lon),
 })
 
 hud.setShowDeaths(false)

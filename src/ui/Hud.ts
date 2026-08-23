@@ -1,3 +1,4 @@
+import { PlaceSearcher, type PlaceHit } from '../data/geocode.ts'
 import type { QuakeEvent, WeatherEvent } from '../data/types.ts'
 import { cycloneWord } from '../data/weatherParse.ts'
 import { TimelineDensity, type DensityMarks } from './TimelineDensity.ts'
@@ -22,6 +23,7 @@ export type HudHandlers = {
   onShowHurricaneLabels: (show: boolean) => void
   onShowFires: (show: boolean) => void
   onShowFireLabels: (show: boolean) => void
+  onLookAtPlace: (lat: number, lon: number) => void
 }
 
 function formatMag(event: QuakeEvent): string {
@@ -61,14 +63,27 @@ export class Hud {
   private showTornadoes = true
   private showHurricanes = true
   private showFires = true
+  private readonly placeInput: HTMLInputElement
+  private readonly placeResults: HTMLElement
+  private readonly placeSearcher: PlaceSearcher
+  private placeHits: PlaceHit[] = []
 
   constructor(root: HTMLElement, handlers: HudHandlers) {
     root.innerHTML = `
       <div class="hud-top">
         <section class="panel controls">
           <header class="panel-head">
-            <h1>World Disasters</h1>
-            <button type="button" class="panel-toggle" aria-expanded="true">Collapse</button>
+            <div class="panel-head-row">
+              <h1>World Disasters</h1>
+              <button type="button" class="panel-toggle" aria-expanded="true">Collapse</button>
+            </div>
+            <div class="place-search">
+              <div class="place-search-field">
+                <input id="place-search" type="search" placeholder="Search a place…" autocomplete="off" spellcheck="false" aria-label="Search a place" aria-controls="place-results" aria-autocomplete="list" aria-expanded="false" />
+                <ul id="place-results" class="place-results" hidden role="listbox"></ul>
+              </div>
+              <p class="place-hint">Moves the globe. Does not filter events.</p>
+            </div>
           </header>
           <div class="panel-body">
             <p class="lede">Worldwide earthquakes, storms, and fires. Expanding blips scale with magnitude. Deaths appear only when a catalog recorded them.</p>
@@ -189,6 +204,9 @@ export class Hud {
     this.playBtn = root.querySelector('#play-toggle') as HTMLButtonElement
     this.muteBtn = root.querySelector('#mute-toggle') as HTMLButtonElement
     this.cardTitleEl = root.querySelector('#card-title') as HTMLElement
+    this.placeInput = root.querySelector('#place-search') as HTMLInputElement
+    this.placeResults = root.querySelector('#place-results') as HTMLElement
+    this.placeSearcher = new PlaceSearcher((hits, status) => this.renderPlaceResults(hits, status))
     const densityCanvas = root.querySelector('#timeline-density') as HTMLCanvasElement
     this.density = new TimelineDensity(densityCanvas)
 
@@ -263,6 +281,35 @@ export class Hud {
     root.querySelector<HTMLInputElement>('#show-fire-labels')?.addEventListener('change', (event) => {
       const target = event.target as HTMLInputElement
       handlers.onShowFireLabels(target.checked)
+    })
+
+    this.placeInput.addEventListener('input', () => {
+      this.placeSearcher.setQuery(this.placeInput.value)
+    })
+    this.placeInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        this.clearPlaceSearch()
+        return
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        const first = this.placeHits[0]
+        if (first) this.choosePlace(first, handlers)
+      }
+    })
+    this.placeResults.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-place]')
+      if (!button) return
+      const index = Number(button.dataset.place)
+      const hit = this.placeHits[index]
+      if (hit) this.choosePlace(hit, handlers)
+    })
+    document.addEventListener('pointerdown', (event) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (this.placeInput.contains(target) || this.placeResults.contains(target)) return
+      this.hidePlaceResults()
     })
 
     this.scrubber.addEventListener('pointerdown', () => {
@@ -416,6 +463,41 @@ export class Hud {
       </dl>
       ${link}
     `
+  }
+
+  private renderPlaceResults(hits: PlaceHit[], status: string | null): void {
+    this.placeHits = hits
+    if (hits.length === 0 && !status) {
+      this.hidePlaceResults()
+      return
+    }
+    const items = hits.map(
+      (hit, index) =>
+        `<li role="option"><button type="button" data-place="${index}">${escapeHtml(hit.label)}</button></li>`,
+    )
+    if (status) items.push(`<li class="place-status" role="presentation">${escapeHtml(status)}</li>`)
+    this.placeResults.innerHTML = items.join('')
+    this.placeResults.hidden = false
+    this.placeInput.setAttribute('aria-expanded', 'true')
+  }
+
+  private choosePlace(hit: PlaceHit, handlers: HudHandlers): void {
+    this.placeInput.value = hit.label
+    this.hidePlaceResults()
+    handlers.onLookAtPlace(hit.lat, hit.lon)
+  }
+
+  private clearPlaceSearch(): void {
+    this.placeInput.value = ''
+    this.placeSearcher.cancel()
+    this.hidePlaceResults()
+  }
+
+  private hidePlaceResults(): void {
+    this.placeHits = []
+    this.placeResults.hidden = true
+    this.placeResults.innerHTML = ''
+    this.placeInput.setAttribute('aria-expanded', 'false')
   }
 
   private syncDensityVisible(): void {

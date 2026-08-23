@@ -6,6 +6,7 @@ import {
   GLOBE_RADIUS,
   PACIFIC_LAT,
   PACIFIC_LON,
+  PLACE_CAMERA_DISTANCE,
   latLonToVector3,
 } from './geo.ts'
 import { FirePool } from './FirePool.ts'
@@ -149,6 +150,12 @@ export class Globe {
 
   resetToPacific(): void {
     this.camera.position.copy(this.pacificPos)
+    this.controls.target.set(0, 0, 0)
+    this.controls.update()
+  }
+
+  lookAtLatLon(lat: number, lon: number): void {
+    latLonToVector3(lat, lon, PLACE_CAMERA_DISTANCE, this.camera.position)
     this.controls.target.set(0, 0, 0)
     this.controls.update()
   }
