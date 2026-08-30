@@ -458,3 +458,123 @@ dd {
     flex-direction: column;
   }
 }
+
+/* Neo-brutalism: thick ink borders, hard offset shadows, poster color blocking. */
+html[data-theme="neobrutal"] {
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700;
+}
+
+html[data-theme="neobrutal"] .panel {
+  background: #ffe14a;
+  border: 3px solid #111;
+  box-shadow: 5px 5px 0 #111;
+  color: #111;
+}
+
+html[data-theme="neobrutal"] .panel.card {
+  background: #7ee0ff;
+}
+
+html[data-theme="neobrutal"] .panel.timeline {
+  background: #fff6d8;
+}
+
+html[data-theme="neobrutal"] .panel-head h1,
+html[data-theme="neobrutal"] .panel-head h2,
+html[data-theme="neobrutal"] #clock {
+  font-family: "Arial Black", "Arial Bold", Impact, sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+}
+
+html[data-theme="neobrutal"] .lede,
+html[data-theme="neobrutal"] .note,
+html[data-theme="neobrutal"] .status,
+html[data-theme="neobrutal"] .attr,
+html[data-theme="neobrutal"] .muted,
+html[data-theme="neobrutal"] .place-hint,
+html[data-theme="neobrutal"] .place-count,
+html[data-theme="neobrutal"] .place-status,
+html[data-theme="neobrutal"] .volume,
+html[data-theme="neobrutal"] .stats,
+html[data-theme="neobrutal"] .density-legend,
+html[data-theme="neobrutal"] .layer-head,
+html[data-theme="neobrutal"] dt {
+  color: #2a2a2a;
+}
+
+html[data-theme="neobrutal"] .stats strong,
+html[data-theme="neobrutal"] .check,
+html[data-theme="neobrutal"] dd {
+  color: #111;
+}
+
+html[data-theme="neobrutal"] button {
+  border: 3px solid #111;
+  background: #fffdf5;
+  color: #111;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  box-shadow: 3px 3px 0 #111;
+}
+
+html[data-theme="neobrutal"] button.active,
+html[data-theme="neobrutal"] button:hover,
+html[data-theme="neobrutal"] button:focus-visible {
+  border-color: #111;
+  background: #ff3d8a;
+  color: #111;
+}
+
+html[data-theme="neobrutal"] button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #111;
+}
+
+html[data-theme="neobrutal"] .place-search input,
+html[data-theme="neobrutal"] .place-results {
+  border: 3px solid #111;
+  background: #fffdf5;
+  color: #111;
+  box-shadow: 3px 3px 0 #111;
+}
+
+html[data-theme="neobrutal"] .place-results button {
+  box-shadow: none;
+  border: none;
+  text-transform: none;
+  font-weight: 700;
+}
+
+html[data-theme="neobrutal"] .place-results button:hover,
+html[data-theme="neobrutal"] .place-results button:focus {
+  background: #ffe14a;
+}
+
+html[data-theme="neobrutal"] .check input {
+  accent-color: #111;
+}
+
+html[data-theme="neobrutal"] .card a {
+  color: #111;
+  font-weight: 800;
+}
+
+html[data-theme="neobrutal"] .mag { color: #9a3d00; }
+html[data-theme="neobrutal"] .mag.tornado { color: #8a4b12; }
+html[data-theme="neobrutal"] .mag.hurricane { color: #004a8a; }
+html[data-theme="neobrutal"] .mag.fire { color: #c42800; }
+
+html[data-theme="neobrutal"] #scrubber,
+html[data-theme="neobrutal"] .volume input {
+  accent-color: #ff3d8a;
+}
+
+html[data-theme="neobrutal"] .density {
+  border: 3px solid #111;
+  background: #111;
+}

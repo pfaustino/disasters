@@ -118,6 +118,10 @@ export class Hud {
               <button type="button" id="play-toggle" title="Space" aria-keyshortcuts="Space">Pause</button>
               <button type="button" id="reset-view">Pacific view</button>
             </div>
+            <div class="row" role="group" aria-label="Design style">
+              <button type="button" data-theme-choice="hud" class="active">Dark HUD</button>
+              <button type="button" data-theme-choice="neobrutal">Neo-brutalism</button>
+            </div>
             <p class="note keys">Space pause/play. While paused, ← → previous/next event.</p>
             <div class="row sound-row">
               <button type="button" id="mute-toggle" class="active" aria-pressed="false">Sound on</button>
@@ -244,6 +248,16 @@ export class Hud {
       button.addEventListener('click', () => {
         this.setToggleGroup('[data-speed]', button)
         handlers.onSpeed(Number(button.dataset.speed))
+      })
+    })
+    const theme = readStoredTheme()
+    applyTheme(theme)
+    root.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.themeChoice === theme)
+      button.addEventListener('click', () => {
+        const next = button.dataset.themeChoice === 'neobrutal' ? 'neobrutal' : 'hud'
+        applyTheme(next)
+        this.setToggleGroup('[data-theme-choice]', button)
       })
     })
     this.playBtn.addEventListener('click', () => handlers.onPlayToggle())
@@ -568,6 +582,26 @@ export class Hud {
     active.parentElement?.querySelectorAll<HTMLButtonElement>(selector).forEach((button) => {
       button.classList.toggle('active', button === active)
     })
+  }
+}
+
+type ThemeId = 'hud' | 'neobrutal'
+const THEME_KEY = 'world-disasters-theme'
+
+function readStoredTheme(): ThemeId {
+  try {
+    return localStorage.getItem(THEME_KEY) === 'neobrutal' ? 'neobrutal' : 'hud'
+  } catch {
+    return 'hud'
+  }
+}
+
+function applyTheme(theme: ThemeId): void {
+  document.documentElement.dataset.theme = theme
+  try {
+    localStorage.setItem(THEME_KEY, theme)
+  } catch {
+    /* private mode / quota */
   }
 }
 
