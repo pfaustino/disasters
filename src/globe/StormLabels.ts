@@ -14,6 +14,7 @@ type Slot = {
   age: number
   lifetime: number
   kind: Kind | null
+  persistent: boolean
 }
 
 const POOL = 48
@@ -60,13 +61,15 @@ export class StormLabelPool {
         age: 0,
         lifetime: MIN_LIFE_SEC,
         kind: null,
+        persistent: false,
       })
     }
   }
 
   spawn(kind: Kind, text: string, lat: number, lon: number, visualLifetime: number): number {
     if (!this.show[kind]) return -1
-    const index = this.cursor % POOL
+    const index = this.nextSlot()
+    if (index < 0) return -1
     this.cursor = (index + 1) % POOL
     const slot = this.slots[index]
     this.place(slot, lat, lon)
@@ -76,9 +79,40 @@ export class StormLabelPool {
     slot.age = 0
     slot.lifetime = Math.max(MIN_LIFE_SEC, visualLifetime + 0.45)
     slot.kind = kind
+    slot.persistent = false
     slot.material.opacity = 1
     slot.sprite.visible = true
     return index
+  }
+
+  private nextSlot(): number {
+    for (let n = 0; n < POOL; n += 1) {
+      const index = (this.cursor + n) % POOL
+      if (!this.slots[index].persistent) return index
+    }
+    return -1
+  }
+
+  setPersistent(index: number, persistent: boolean): void {
+    if (index < 0 || index >= this.slots.length) return
+    const slot = this.slots[index]
+    if (!slot.active) return
+    slot.persistent = persistent
+    if (persistent) {
+      slot.age = 0
+      slot.material.opacity = 1
+    }
+  }
+
+  isActiveKind(index: number, kind: Kind): boolean {
+    if (index < 0 || index >= this.slots.length) return false
+    const slot = this.slots[index]
+    return slot.active && slot.kind === kind
+  }
+
+  release(index: number): void {
+    if (index < 0 || index >= this.slots.length) return
+    this.deactivate(this.slots[index])
   }
 
   move(index: number, lat: number, lon: number): void {
@@ -92,6 +126,10 @@ export class StormLabelPool {
     for (let i = 0; i < this.slots.length; i += 1) {
       const slot = this.slots[i]
       if (!slot.active) continue
+      if (slot.persistent) {
+        slot.material.opacity = 1
+        continue
+      }
       slot.age += dtSec
       const t = slot.age / slot.lifetime
       if (t >= 1) {
@@ -126,6 +164,7 @@ export class StormLabelPool {
   private deactivate(slot: Slot): void {
     slot.active = false
     slot.kind = null
+    slot.persistent = false
     slot.sprite.visible = false
     slot.material.opacity = 0
   }

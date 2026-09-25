@@ -430,11 +430,11 @@ function frame(now: number): void {
     resetStats()
     weatherPlay.seekTo(playback.playhead)
   }
+  syncLiveStorms()
   weatherPlay.emitUpTo(playback.playhead, (event) => {
     if (mode === 'live' && event.kind === 'hurricane') return
     onWeather(event)
   })
-  syncLiveStorms()
   globe.update(dt / 1000)
   globe.render()
   hud.setClock(playback.events.length > 0 ? playback.playhead : Number.NaN)

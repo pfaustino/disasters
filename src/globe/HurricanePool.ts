@@ -22,6 +22,7 @@ type Slot = {
 
 const POOL = 24
 const SURFACE_LIFT = 1.008
+const LABEL_NORTH_OFFSET_DEG = 2.4
 
 export class HurricanePool {
   readonly group = new THREE.Group()
@@ -87,6 +88,7 @@ export class HurricanePool {
     if (!this.enabled || event.kind !== 'hurricane') return
     const slot = this.slots[this.cursor % POOL]
     this.cursor = (this.cursor + 1) % POOL
+    if (slot.active && slot.labelId >= 0) this.labels.release(slot.labelId)
     const cat = event.category ?? (event.windKt != null && event.windKt >= 64 ? 1 : 0)
     slot.active = true
     slot.age = 0
@@ -101,7 +103,9 @@ export class HurricanePool {
     slot.group.visible = true
     const text = weatherGlobeLabel(event)
     slot.labelId =
-      text != null ? this.labels.spawn('hurricane', text, event.lat, event.lon, slot.lifetime) : -1
+      text != null
+        ? this.labels.spawn('hurricane', text, event.lat + LABEL_NORTH_OFFSET_DEG, event.lon, slot.lifetime)
+        : -1
     this.place(slot, event.lat, event.lon)
     this.setOpacity(slot, 0)
   }
@@ -150,7 +154,23 @@ export class HurricanePool {
       slot.persistent = true
       slot.track = event.track
       const last = event.track && event.track.length > 0 ? event.track[event.track.length - 1] : null
-      this.place(slot, last?.lat ?? event.lat, last?.lon ?? event.lon)
+      const lat = last?.lat ?? event.lat
+      const lon = last?.lon ?? event.lon
+      const text = weatherGlobeLabel(event)
+      if (text != null) {
+        if (!this.labels.isActiveKind(slot.labelId, 'hurricane')) {
+          if (slot.labelId >= 0) this.labels.release(slot.labelId)
+          slot.labelId = this.labels.spawn(
+            'hurricane',
+            text,
+            lat + LABEL_NORTH_OFFSET_DEG,
+            lon,
+            slot.lifetime,
+          )
+        }
+        this.labels.setPersistent(slot.labelId, true)
+      }
+      this.place(slot, lat, lon)
     }
     for (let i = 0; i < this.slots.length; i += 1) {
       const slot = this.slots[i]
@@ -167,7 +187,7 @@ export class HurricanePool {
     latLonToVector3(lat, lon, GLOBE_RADIUS * SURFACE_LIFT, this.tmpPos)
     slot.group.position.copy(this.tmpPos)
     slot.group.lookAt(0, 0, 0)
-    this.labels.move(slot.labelId, lat, lon)
+    this.labels.move(slot.labelId, lat + LABEL_NORTH_OFFSET_DEG, lon)
   }
 
   private setOpacity(slot: Slot, opacity: number): void {
@@ -176,6 +196,7 @@ export class HurricanePool {
   }
 
   private deactivate(slot: Slot): void {
+    if (slot.labelId >= 0) this.labels.release(slot.labelId)
     slot.active = false
     slot.labelId = -1
     slot.eventId = ''
