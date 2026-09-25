@@ -99,6 +99,10 @@ export class Globe {
     else this.fires.spawn(event)
   }
 
+  syncLiveHurricanes(events: WeatherEvent[]): void {
+    this.hurricanes.sync(events)
+  }
+
   setShowEarthquakes(show: boolean): void {
     this.ripples.enabled = show
     if (!show) {

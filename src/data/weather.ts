@@ -6,7 +6,7 @@ import type { WeatherEvent, WeatherTrackPoint } from './types.ts'
 // - NWS active tornado warnings: https://api.weather.gov/alerts/active?event=Tornado%20Warning
 // - IEM local storm reports (7 days): https://mesonet.agron.iastate.edu/geojson/lsr.php?hours=168
 // - NHC active tropical cyclones (Atlantic + East/Central Pacific):
-//   https://www.nhc.noaa.gov/CurrentStorms.json
+//   https://www.nhc.noaa.gov/CurrentStorms.json (no CORS; browser uses IBTrACS ACTIVE)
 // - JMA bosai active western Pacific typhoons:
 //   https://www.jma.go.jp/bosai/typhoon/data/targetTc.json
 //   https://www.jma.go.jp/bosai/typhoon/data/{TC id}/specifications.json
@@ -355,9 +355,17 @@ async function loadLiveJmaTyphoons(): Promise<WeatherEvent[]> {
 
 async function loadLiveIbtracsActive(): Promise<WeatherEvent[]> {
   const csv = await fetchText(IBTRACS_ACTIVE)
-  return ibtracsCsvToStorms(csv, 34).filter((event) => {
-    const basin = (event.basin ?? '').toUpperCase()
-    return basin === 'WP' || basin === 'NI' || basin === 'SI' || basin === 'SP' || basin === 'SA'
+  // NHC CurrentStorms.json has no CORS headers, so Atlantic / East Pacific
+  // storms only reach the browser through this CORS-open IBTrACS ACTIVE file.
+  const holdUntil = Date.now() + 2 * 24 * 3600_000
+  return ibtracsCsvToStorms(csv, 34).map((event) => {
+    const last = event.track?.[event.track.length - 1]
+    return {
+      ...event,
+      lat: last?.lat ?? event.lat,
+      lon: last?.lon ?? event.lon,
+      endTime: Math.max(event.endTime ?? event.time, holdUntil),
+    }
   })
 }
 
@@ -444,6 +452,16 @@ export function weatherInWindow(events: WeatherEvent[], start: number, end: numb
     const event = events[i]
     const finish = event.endTime ?? event.time
     if (event.time <= end && finish >= start) selected.push(event)
+  }
+  return selected
+}
+
+export function weatherActiveAt(events: WeatherEvent[], playhead: number): WeatherEvent[] {
+  const selected: WeatherEvent[] = []
+  for (let i = 0; i < events.length; i += 1) {
+    const event = events[i]
+    const finish = event.endTime ?? event.time
+    if (event.time <= playhead && finish >= playhead) selected.push(event)
   }
   return selected
 }

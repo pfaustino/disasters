@@ -16,6 +16,8 @@ type Slot = {
   scale: number
   track: WeatherEvent['track']
   labelId: number
+  eventId: string
+  persistent: boolean
 }
 
 const POOL = 24
@@ -75,6 +77,8 @@ export class HurricanePool {
         scale: 0.06,
         track: null,
         labelId: -1,
+        eventId: '',
+        persistent: false,
       })
     }
   }
@@ -92,6 +96,8 @@ export class HurricanePool {
     slot.disk.rotation.z = 0
     tintStorm(slot.diskMat, cat)
     slot.track = event.track
+    slot.eventId = event.id
+    slot.persistent = false
     slot.group.visible = true
     const text = weatherGlobeLabel(event)
     slot.labelId =
@@ -106,19 +112,49 @@ export class HurricanePool {
       if (!slot.active) continue
       slot.age += dtSec
       const t = slot.age / slot.lifetime
-      if (t >= 1) {
+      if (!slot.persistent && t >= 1) {
         this.deactivate(slot)
         continue
       }
       slot.disk.rotation.z += slot.spinSpeed * dtSec
-      const appear = Math.min(1, slot.age / 0.25)
-      const fade = t > 0.72 ? (1 - t) / 0.28 : 1
-      this.setOpacity(slot, 0.88 * appear * fade)
+      if (slot.persistent) {
+        this.setOpacity(slot, 0.88)
+      } else {
+        const appear = Math.min(1, slot.age / 0.25)
+        const fade = t > 0.72 ? (1 - t) / 0.28 : 1
+        this.setOpacity(slot, 0.88 * appear * fade)
+      }
       slot.group.scale.setScalar(slot.scale)
-      if (slot.track && slot.track.length >= 2) {
+      if (!slot.persistent && slot.track && slot.track.length >= 2) {
         const pos = sampleTrack(slot.track, Math.min(1, t))
         this.place(slot, pos.lat, pos.lon)
       }
+    }
+  }
+
+  sync(events: WeatherEvent[]): void {
+    if (!this.enabled) {
+      this.clear()
+      return
+    }
+    const keep = new Set<string>()
+    for (let i = 0; i < events.length; i += 1) {
+      const event = events[i]
+      if (event.kind !== 'hurricane') continue
+      keep.add(event.id)
+      let slot = this.slots.find((item) => item.active && item.eventId === event.id)
+      if (!slot) {
+        this.spawn(event)
+        slot = this.slots[(this.cursor + POOL - 1) % POOL]
+      }
+      slot.persistent = true
+      slot.track = event.track
+      const last = event.track && event.track.length > 0 ? event.track[event.track.length - 1] : null
+      this.place(slot, last?.lat ?? event.lat, last?.lon ?? event.lon)
+    }
+    for (let i = 0; i < this.slots.length; i += 1) {
+      const slot = this.slots[i]
+      if (slot.active && slot.eventId && !keep.has(slot.eventId)) this.deactivate(slot)
     }
   }
 
@@ -142,6 +178,8 @@ export class HurricanePool {
   private deactivate(slot: Slot): void {
     slot.active = false
     slot.labelId = -1
+    slot.eventId = ''
+    slot.persistent = false
     slot.group.visible = false
     this.setOpacity(slot, 0)
   }

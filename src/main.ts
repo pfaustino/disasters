@@ -1,7 +1,13 @@
 import './style.css'
 import { loadNoaaEvents } from './data/noaa.ts'
 import { loadUsgsEvents } from './data/usgs.ts'
-import { clampWeatherTimes, loadHistoryWeather, loadLiveWeather, weatherInWindow } from './data/weather.ts'
+import {
+  clampWeatherTimes,
+  loadHistoryWeather,
+  loadLiveWeather,
+  weatherActiveAt,
+  weatherInWindow,
+} from './data/weather.ts'
 import type { PlaceHit } from './data/geocode.ts'
 import { matchPlaceEvents, samePlaceMatch, type PlaceMatch } from './data/placeMatch.ts'
 import type { QuakeEvent, WeatherEvent } from './data/types.ts'
@@ -80,6 +86,7 @@ const hud = new Hud(hudRoot, {
     playback.seekFraction(fraction)
     weatherPlay.seekTo(playback.playhead)
     globe.clearMarks()
+    syncLiveStorms()
     hud.setClock(playback.playhead)
     stepCursorPlayhead = Number.NaN
     if (placeHit) {
@@ -407,6 +414,13 @@ function onWeather(event: WeatherEvent): void {
   hud.showEvent(event)
 }
 
+function syncLiveStorms(): void {
+  if (mode !== 'live') return
+  globe.syncLiveHurricanes(
+    weatherActiveAt(weatherPlay.events, playback.playhead).filter((event) => event.kind === 'hurricane'),
+  )
+}
+
 let last = performance.now()
 function frame(now: number): void {
   const dt = Math.min(100, now - last)
@@ -416,7 +430,11 @@ function frame(now: number): void {
     resetStats()
     weatherPlay.seekTo(playback.playhead)
   }
-  weatherPlay.emitUpTo(playback.playhead, onWeather)
+  weatherPlay.emitUpTo(playback.playhead, (event) => {
+    if (mode === 'live' && event.kind === 'hurricane') return
+    onWeather(event)
+  })
+  syncLiveStorms()
   globe.update(dt / 1000)
   globe.render()
   hud.setClock(playback.events.length > 0 ? playback.playhead : Number.NaN)
